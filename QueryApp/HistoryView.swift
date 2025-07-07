@@ -17,7 +17,13 @@ struct QueryHistory: Identifiable, Codable {
     }
     
     var cardBalanceText: String {
-        return cardBalance ?? "获取失败"
+        if let cardBalance = cardBalance {
+            if cardBalance == "未配置" {
+                return "未配置卡用户ID"
+            }
+            return cardBalance
+        }
+        return "获取失败"
     }
     
     var waterBalanceText: String {
@@ -202,7 +208,13 @@ struct HistoryRowView: View {
                         Text(history.cardBalanceText)
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(history.cardBalance != nil ? .primary : .red)
+                            .foregroundColor({
+                                if let cardBalance = history.cardBalance {
+                                    return cardBalance == "未配置" ? .orange : .primary
+                                } else {
+                                    return .red
+                                }
+                            }())
                     }
                     
                     Spacer()
@@ -269,11 +281,12 @@ struct HistoryRowView: View {
         let hasWaterBalance = history.waterBalance != nil
         let hasElectricityBalance = history.electricityBalance != nil
         
-        let successCount = [hasCardBalance, hasWaterBalance, hasElectricityBalance].filter { $0 }.count
+        // 计算成功或有配置的项目数量
+        let validCount = [hasCardBalance, hasWaterBalance, hasElectricityBalance].filter { $0 }.count
         
-        if successCount == 3 {
+        if validCount == 3 {
             return .green
-        } else if successCount >= 1 {
+        } else if validCount >= 1 {
             return .orange
         } else {
             return .red

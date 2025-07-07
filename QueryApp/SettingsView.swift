@@ -200,7 +200,7 @@ class RoomDataManager: ObservableObject {
 }
 
 struct SettingsView: View {
-    @State private var cardUserId: String = Config.cardUserId
+    @State private var cardUserId: String = Config.cardUserId ?? ""
     @State private var roomUserId: String = Config.roomUserId
     @State private var deviceId: String = Config.deviceId
     @State private var areaId_elec: String = Config.areaId_elec
@@ -475,7 +475,7 @@ struct SettingsView: View {
         UserDefaults.standard.removeObject(forKey: "roomCode")
         
         // 重新加载默认值到State变量
-        cardUserId = Config.cardUserId
+        cardUserId = Config.cardUserId ?? ""
         roomUserId = Config.roomUserId
         deviceId = Config.deviceId
         areaId_elec = Config.areaId_elec
@@ -487,9 +487,15 @@ struct SettingsView: View {
     
     private func initializeRoomSelection() {
         // 根据当前配置找到对应的选择项
-        let currentBuildingCode = Config.buildingCode
-        let currentFloorCode = Config.floorCode
-        let currentRoomCode = Config.roomCode
+        guard let currentBuildingCode = Config.buildingCode,
+              let currentFloorCode = Config.floorCode,
+              let currentRoomCode = Config.roomCode else {
+            // 如果房间配置不完整，清空选择
+            selectedBuilding = nil
+            selectedFloor = nil
+            selectedRoom = nil
+            return
+        }
         
         // 找到对应的楼栋
         selectedBuilding = roomDataManager.findBuilding(byCode: currentBuildingCode)

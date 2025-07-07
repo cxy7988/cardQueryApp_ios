@@ -12,18 +12,16 @@ struct Config {
 
     // MARK: - 个性化变量,需要抓包获取
     // 默认值，如果UserDefaults中没有保存的值则使用这些默认值
-    private static let defaultCardUserId = "710d0450-2103-42ff-9445-8c2705e68923"
+    // 卡用户ID不设默认值，未设置时不查询卡余额
     private static let defaultRoomUserId = "fd755fb9-120c-4196-aa0f-1f5d022e9760"
     private static let defaultDeviceId = "2207539894378700812"
     private static let defaultAreaId_elec = "1912101709517173"
     private static let defaultAreaId_water = "1912101703037172"
-    private static let defaultBuildingCode = "237"
-    private static let defaultFloorCode = "254"
-    private static let defaultRoomCode = "10254401"
+    // 房间相关配置不设默认值，强制用户在设置中选择
     
     // 从UserDefaults读取或使用默认值
-    static var cardUserId: String {
-        return UserDefaults.standard.string(forKey: "cardUserId") ?? defaultCardUserId
+    static var cardUserId: String? {
+        return UserDefaults.standard.string(forKey: "cardUserId")
     }
     
     static var roomUserId: String {
@@ -42,16 +40,21 @@ struct Config {
         return UserDefaults.standard.string(forKey: "areaId_water") ?? defaultAreaId_water
     }
     
-    static var buildingCode: String {
-        return UserDefaults.standard.string(forKey: "buildingCode") ?? defaultBuildingCode
+    static var buildingCode: String? {
+        return UserDefaults.standard.string(forKey: "buildingCode")
     }
     
-    static var floorCode: String {
-        return UserDefaults.standard.string(forKey: "floorCode") ?? defaultFloorCode
+    static var floorCode: String? {
+        return UserDefaults.standard.string(forKey: "floorCode")
     }
     
-    static var roomCode: String {
-        return UserDefaults.standard.string(forKey: "roomCode") ?? defaultRoomCode
+    static var roomCode: String? {
+        return UserDefaults.standard.string(forKey: "roomCode")
+    }
+    
+    // 检查房间配置是否完整
+    static var isRoomConfigured: Bool {
+        return buildingCode != nil && floorCode != nil && roomCode != nil
     }
 }
 
@@ -66,6 +69,12 @@ struct QueryAppApp: App {
 
 /// 异步请求卡余额，完成后通过 completion 返回 String?（balance）
 func getCardMoney(completion: @escaping (String?) -> Void) {
+    // 检查卡用户ID是否已设置
+    guard let cardUserId = Config.cardUserId else {
+        completion(nil)
+        return
+    }
+    
     // 构造 URLRequest（示例复用之前的逻辑）
     guard let url = URL(string: "https://webapp.xiaofubao.com/card/getCardMoney") else {
         completion(nil)
@@ -85,7 +94,7 @@ func getCardMoney(completion: @escaping (String?) -> Void) {
         "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X)…",
         "Sec-Fetch-Dest": "empty",
         "Referer": "https://webapp.xiaofubao.com/webapp/card/card_remain.shtml?platform=\(Config.platform)&schoolCode=\(Config.schoolCode)&thirdAppid=\(Config.thirdAppid)",
-        "Cookie": "shiroJID=\(Config.cardUserId)"
+        "Cookie": "shiroJID=\(cardUserId)"
     ]
     headers.forEach { key, value in
         request.setValue(value, forHTTPHeaderField: key)
@@ -110,6 +119,15 @@ func getCardMoney(completion: @escaping (String?) -> Void) {
 
 /// 异步请求水费余额，完成后通过 completion 返回 (roomName, surplus)
 func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
+    // 检查房间配置是否完整
+    guard Config.isRoomConfigured,
+          let buildingCode = Config.buildingCode,
+          let floorCode = Config.floorCode,
+          let roomCode = Config.roomCode else {
+        completion(nil, nil)
+        return
+    }
+    
     guard let url = URL(string: "https://application.xiaofubao.com/app/electric/queryRoomSurplus") else {
         completion(nil, nil)
         return
@@ -138,7 +156,7 @@ func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
         request.setValue(value, forHTTPHeaderField: key)
     }
 
-    let bodyString = "areaId=\(Config.areaId_water)&buildingCode=\(Config.buildingCode)&floorCode=\(Config.floorCode)&roomCode=\(Config.roomCode)&ymId=\(Config.deviceId)&platform=\(Config.platform)"
+    let bodyString = "areaId=\(Config.areaId_water)&buildingCode=\(buildingCode)&floorCode=\(floorCode)&roomCode=\(roomCode)&ymId=\(Config.deviceId)&platform=\(Config.platform)"
     request.httpBody = bodyString.data(using: .utf8)
 
     URLSession.shared.dataTask(with: request) { data, response, error in
@@ -174,6 +192,15 @@ func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
 
 /// 异步请求电费余额，完成后通过 completion 返回 (roomName, amount)
 func getElectricityBalance(completion: @escaping (String?, Double?) -> Void) {
+    // 检查房间配置是否完整
+    guard Config.isRoomConfigured,
+          let buildingCode = Config.buildingCode,
+          let floorCode = Config.floorCode,
+          let roomCode = Config.roomCode else {
+        completion(nil, nil)
+        return
+    }
+    
     guard let url = URL(string: "https://application.xiaofubao.com/app/electric/queryRoomSurplus") else {
         completion(nil, nil)
         return
@@ -202,7 +229,7 @@ func getElectricityBalance(completion: @escaping (String?, Double?) -> Void) {
         request.setValue(value, forHTTPHeaderField: key)
     }
 
-    let bodyString = "areaId=\(Config.areaId_elec)&buildingCode=\(Config.buildingCode)&floorCode=\(Config.floorCode)&roomCode=\(Config.roomCode)&ymId=\(Config.deviceId)&platform=\(Config.platform)"
+    let bodyString = "areaId=\(Config.areaId_elec)&buildingCode=\(buildingCode)&floorCode=\(floorCode)&roomCode=\(roomCode)&ymId=\(Config.deviceId)&platform=\(Config.platform)"
     request.httpBody = bodyString.data(using: .utf8)
 
     URLSession.shared.dataTask(with: request) { data, response, error in
