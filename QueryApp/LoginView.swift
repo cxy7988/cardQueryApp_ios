@@ -3,7 +3,7 @@ import Foundation
 
 // MARK: - 登录API服务
 class LoginService: ObservableObject {
-    private let baseURL = "http://20.2.211.202:5000"  // 替换为实际的API服务器地址
+    private let baseURL = "https://wkuquery.asia:5000"  // 使用域名
     
     @Published var isLoading = false
     @Published var errorMessage: String?
