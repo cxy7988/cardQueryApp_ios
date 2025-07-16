@@ -15,8 +15,8 @@ struct Config {
     // 卡用户ID不设默认值，未设置时不查询卡余额
     private static let defaultRoomUserId = "fd755fb9-120c-4196-aa0f-1f5d022e9760"
     private static let defaultDeviceId = "2207539894378700812"
-    private static let defaultAreaId_elec = "1912101709517173"
-    private static let defaultAreaId_water = "1912101703037172"
+    private static let defaultAreaId_elec = "1912101703037172"
+    private static let defaultAreaId_water = "1912101709517173"
     // 房间相关配置不设默认值，强制用户在设置中选择
     
     // 从UserDefaults读取或使用默认值
@@ -117,7 +117,7 @@ func getCardMoney(completion: @escaping (String?) -> Void) {
     .resume()
 }
 
-/// 异步请求水费余额，完成后通过 completion 返回 (roomName, surplus)
+/// 异步请求水费余额，完成后通过 completion 返回 (roomName, amount)
 func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
     // 检查房间配置是否完整
     guard Config.isRoomConfigured,
@@ -171,7 +171,7 @@ func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
         do {
             let waterResponse = try JSONDecoder().decode(WaterResponse.self, from: data)
             if let waterData = waterResponse.data {
-                completion(waterData.displayRoomName, waterData.surplus)
+                completion(waterData.displayRoomName, waterData.amount)
             } else {
                 completion(nil, nil)
             }
@@ -179,9 +179,9 @@ func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
             // 如果解码失败，尝试使用原始JSON解析方式
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let dataDict = json["data"] as? [String: Any],
-               let surplus = dataDict["surplus"] as? Double,
+               let amount = dataDict["amount"] as? Double,
                let roomName = dataDict["displayRoomName"] as? String {
-                completion(roomName, surplus)
+                completion(roomName, amount)
             } else {
                 completion(nil, nil)
             }
@@ -190,7 +190,7 @@ func getWaterBalance(completion: @escaping (String?, Double?) -> Void) {
     .resume()
 }
 
-/// 异步请求电费余额，完成后通过 completion 返回 (roomName, amount)
+/// 异步请求电费余额，完成后通过 completion 返回 (roomName, surplus)
 func getElectricityBalance(completion: @escaping (String?, Double?) -> Void) {
     // 检查房间配置是否完整
     guard Config.isRoomConfigured,
@@ -244,7 +244,7 @@ func getElectricityBalance(completion: @escaping (String?, Double?) -> Void) {
         do {
             let electricityResponse = try JSONDecoder().decode(ElectricityResponse.self, from: data)
             if let electricityData = electricityResponse.data {
-                completion(electricityData.displayRoomName, electricityData.amount)
+                completion(electricityData.displayRoomName, electricityData.surplus)
             } else {
                 completion(nil, nil)
             }
@@ -252,9 +252,9 @@ func getElectricityBalance(completion: @escaping (String?, Double?) -> Void) {
             // 如果解码失败，尝试使用原始JSON解析方式
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let dataDict = json["data"] as? [String: Any],
-               let amount = dataDict["amount"] as? Double,
+               let surplus = dataDict["surplus"] as? Double,
                let roomName = dataDict["displayRoomName"] as? String {
-                completion(roomName, amount)
+                completion(roomName, surplus)
             } else {
                 completion(nil, nil)
             }
