@@ -7,7 +7,7 @@ struct WaterResponse: Codable {
 }
 
 struct WaterData: Codable {
-    let surplus: Double  // 水费返回的是surplus字段
+    let amount: Double  // 水费返回的是amount字段
     let displayRoomName: String
 }
 
@@ -17,7 +17,7 @@ struct ElectricityResponse: Codable {
 }
 
 struct ElectricityData: Codable {
-    let amount: Double  // 电费返回的是amount字段
+    let surplus: Double  // 电费返回的是surplus字段
     let displayRoomName: String
 }
 
