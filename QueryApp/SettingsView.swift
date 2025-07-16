@@ -215,7 +215,9 @@ struct SettingsView: View {
     @State private var showingSaveAlert = false
     @State private var showingResetAlert = false
     @State private var showingDeveloperMode = false
+    @State private var showingLogoutAlert = false
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var loginManager: LoginManager
     
     // 初始化选择项
     init() {
@@ -225,6 +227,35 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                // 用户信息Section
+                Section(header: Text("用户信息").font(.headline)) {
+                    HStack {
+                        Image(systemName: "person.crop.circle.fill")
+                            .foregroundColor(.accentColor)
+                            .font(.title2)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("已登录用户")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            Text(loginManager.userEmail)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Button("退出登录") {
+                            showingLogoutAlert = true
+                        }
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .buttonStyle(.borderless)
+                    }
+                    .padding(.vertical, 4)
+                }
+                
                 Section(header: Text("房间配置").font(.headline)) {
                     // 楼栋选择
                     VStack(alignment: .leading, spacing: 8) {
@@ -428,6 +459,15 @@ struct SettingsView: View {
             }
         } message: {
             Text("确定要将所有设置重置为默认值吗？")
+        }
+        .alert("退出登录", isPresented: $showingLogoutAlert) {
+            Button("取消", role: .cancel) { }
+            Button("退出", role: .destructive) {
+                loginManager.logout()
+                dismiss()
+            }
+        } message: {
+            Text("确定要退出登录吗？退出后需要重新验证邮箱才能使用应用。")
         }
         .sheet(isPresented: $showingDeveloperMode) {
             DeveloperModeView(

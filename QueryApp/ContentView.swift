@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var showingHistory = false
     @State private var isQuerying = false
     @StateObject private var historyManager = HistoryManager()
+    @EnvironmentObject var loginManager: LoginManager
     
     // 使用@AppStorage来监听UserDefaults的变化
     @AppStorage("buildingCode") private var buildingCode: String?
@@ -580,6 +581,7 @@ struct ConfigInfo: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+            .environmentObject(LoginManager())
     }
 }
 

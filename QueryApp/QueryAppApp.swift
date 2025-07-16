@@ -60,9 +60,17 @@ struct Config {
 
 @main
 struct QueryAppApp: App {
+    @StateObject private var loginManager = LoginManager()
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if loginManager.isLoggedIn {
+                ContentView()
+                    .environmentObject(loginManager)
+            } else {
+                LoginView()
+                    .environmentObject(loginManager)
+            }
         }
     }
 }
