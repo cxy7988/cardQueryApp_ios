@@ -737,17 +737,17 @@ struct LoginView: View {
             return
         }
         
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
-                self?.loginService.isLoading = false
+                self.loginService.isLoading = false
                 
                 if let error = error {
-                    self?.showAlert(title: "网络错误", message: "网络错误：\(error.localizedDescription)")
+                    self.showAlert(title: "网络错误", message: "网络错误：\(error.localizedDescription)")
                     return
                 }
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    self?.showAlert(title: "服务器错误", message: "服务器响应错误")
+                    self.showAlert(title: "服务器错误", message: "服务器响应错误")
                     return
                 }
                 
@@ -762,14 +762,14 @@ struct LoginView: View {
                         UserDefaults.standard.set(room.code, forKey: "roomCode")
                         
                         // 完成登录
-                        self?.loginManager.login(email: self?.email.lowercased() ?? "")
-                        self?.showAlert(title: "注册成功", message: "欢迎使用费用查询系统！您的宿舍信息已绑定：\(building.name) \(floor.name) \(room.name)")
+                        self.loginManager.login(email: self.email.lowercased())
+                        self.showAlert(title: "注册成功", message: "欢迎使用费用查询系统！您的宿舍信息已绑定：\(building.name) \(floor.name) \(room.name)")
                     } else {
                         let errorMsg = json["error"] as? String ?? "验证失败"
-                        self?.showAlert(title: "验证失败", message: errorMsg)
+                        self.showAlert(title: "验证失败", message: errorMsg)
                     }
                 } else {
-                    self?.showAlert(title: "验证失败", message: "验证失败，请稍后重试")
+                    self.showAlert(title: "验证失败", message: "验证失败，请稍后重试")
                 }
             }
         }.resume()
