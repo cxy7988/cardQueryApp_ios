@@ -2,34 +2,34 @@
 
 An iOS application designed specifically for campus life, supporting real-time queries of meal card balance, water fees, and electricity fees.
 
-## 📱 Features
+## Features
 
-### 🔐 Secure Login
+### Secure Login
 - **Email Verification Login**: Use @wku.edu.cn email to receive verification codes
 - **Security Assurance**: 5-minute validity period for verification codes with automatic expiration protection
 - **Login State Management**: Persistent login state, no need to log in again after app restart
 
-### 🔍 Multiple Queries
+### Multiple Queries
 - **Meal Card Balance Query**: Real-time campus card balance information
 - **Water Fee Query**: Check dormitory water fee balance and usage
 - **Electricity Fee Query**: Monitor dormitory electricity fee balance and power consumption
 
-### 🏠 Smart Room Configuration
+### Smart Room Configuration
 - Building, floor, and room cascading selection
 - JSON data-based room information management
 - Configuration completeness validation
 
-### 📊 History Records
+### History Records
 - Local persistent storage of query history
 - Support for viewing, deleting, and clearing history records
 - Visual display of query status
 
-### ⚙️ Personalized Configuration
+### Personalized Configuration
 - **Basic Configuration**: Room information selection
 - **Developer Mode**: Custom API parameter configuration
 - **Configuration Management**: Save, reset, import and export
 
-## 🎨 Interface Design
+## Interface Design
 
 ### Modern UI
 - Native interface built with SwiftUI
@@ -42,7 +42,7 @@ An iOS application designed specifically for campus life, supporting real-time q
 - Configuration guidance and error prompts
 - Intuitive icons and color differentiation
 
-## 🔧 Technical Architecture
+## Technical Architecture
 
 ### Framework Technologies
 - **SwiftUI**: Declarative UI framework
@@ -55,7 +55,7 @@ An iOS application designed specifically for campus life, supporting real-time q
 - JSON data parsing and processing
 - Asynchronous network requests and error handling
 
-## 📋 Usage Instructions
+## Usage Instructions
 
 ### First Use
 1. **Login Verification**: Enter your @wku.edu.cn email address
@@ -80,13 +80,13 @@ An iOS application designed specifically for campus life, supporting real-time q
 - **Developer Parameters**: Advanced users can customize API interface parameters
 - **Logout**: Safe logout available in the settings page
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 - All data is stored locally and not uploaded to third-party servers
 - Sensitive configuration information is only saved locally on the device
 - Network requests only access official query interfaces
 
-## 🛠 Developer Instructions
+## Developer Instructions
 
 ### API Interfaces
 - **Card Balance**: `https://webapp.xiaofubao.com/card/getCardMoney`
@@ -105,7 +105,3 @@ An iOS application designed specifically for campus life, supporting real-time q
 3. Get the `shiroJID` value from the Cookie in the request header
 4. Get the corresponding ID values from the request parameters
 
-
-## 📄 License
-
-This project is for learning and personal use only. Please comply with relevant laws, regulations, and school policies.
