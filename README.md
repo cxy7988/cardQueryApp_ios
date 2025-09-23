@@ -1,124 +1,111 @@
-# QueryApp - 校园费用查询应用
+# QueryApp - Campus Fee Query Application
 
-一个专为校园生活设计的费用查询iOS应用，支持饭卡余额、水费、电费的实时查询。
+An iOS application designed specifically for campus life, supporting real-time queries of meal card balance, water fees, and electricity fees.
 
-## 📱 功能特性
+## 📱 Features
 
-### 🔐 安全登录
-- **邮箱验证登录**：使用 @wku.edu.cn 邮箱接收验证码
-- **安全保障**：验证码5分钟有效期，自动过期保护
-- **登录状态管理**：持久化登录状态，重启应用无需重新登录
+### 🔐 Secure Login
+- **Email Verification Login**: Use @wku.edu.cn email to receive verification codes
+- **Security Assurance**: 5-minute validity period for verification codes with automatic expiration protection
+- **Login State Management**: Persistent login state, no need to log in again after app restart
 
-### 🔍 多项查询
-- **饭卡余额查询**：实时获取校园卡余额信息
-- **水费查询**：查看宿舍水费余额和使用情况
-- **电费查询**：监控宿舍电费余额和用电量
+### 🔍 Multiple Queries
+- **Meal Card Balance Query**: Real-time campus card balance information
+- **Water Fee Query**: Check dormitory water fee balance and usage
+- **Electricity Fee Query**: Monitor dormitory electricity fee balance and power consumption
 
-### 🏠 智能房间配置
-- 楼栋、楼层、房间级联选择
-- 基于JSON数据的房间信息管理
-- 配置完整性验证
+### 🏠 Smart Room Configuration
+- Building, floor, and room cascading selection
+- JSON data-based room information management
+- Configuration completeness validation
 
-### 📊 历史记录
-- 本地持久化存储查询历史
-- 支持查看、删除和清空历史记录
-- 查询状态可视化显示
+### 📊 History Records
+- Local persistent storage of query history
+- Support for viewing, deleting, and clearing history records
+- Visual display of query status
 
-### ⚙️ 个性化配置
-- **基础配置**：房间信息选择
-- **开发者模式**：API参数自定义配置
-- **配置管理**：保存、重置、导入导出
+### ⚙️ Personalized Configuration
+- **Basic Configuration**: Room information selection
+- **Developer Mode**: Custom API parameter configuration
+- **Configuration Management**: Save, reset, import and export
 
-## 🎨 界面设计
+## 🎨 Interface Design
 
-### 现代化UI
-- 基于SwiftUI构建的原生界面
-- 卡片式设计，信息展示清晰
-- 支持Light/Dark模式自适应
-- 流畅的动画效果和交互反馈
+### Modern UI
+- Native interface built with SwiftUI
+- Card-style design with clear information display
+- Support for Light/Dark mode adaptation
+- Smooth animation effects and interactive feedback
 
-### 用户体验
-- 查询按钮动态状态显示
-- 配置引导和错误提示
-- 直观的图标和色彩区分
+### User Experience
+- Dynamic status display for query buttons
+- Configuration guidance and error prompts
+- Intuitive icons and color differentiation
 
-## 🔧 技术架构
+## 🔧 Technical Architecture
 
-### 框架技术
-- **SwiftUI**：声明式UI框架
-- **Combine**：响应式编程
-- **UserDefaults**：本地数据持久化
-- **URLSession**：网络请求处理
+### Framework Technologies
+- **SwiftUI**: Declarative UI framework
+- **Combine**: Reactive programming
+- **UserDefaults**: Local data persistence
+- **URLSession**: Network request handling
 
-### 数据管理
-- 结构化配置管理
-- JSON数据解析和处理
-- 异步网络请求和错误处理
+### Data Management
+- Structured configuration management
+- JSON data parsing and processing
+- Asynchronous network requests and error handling
 
-## 📋 使用说明
+## 📋 Usage Instructions
 
-### 首次使用
-1. **登录验证**：输入您的 @wku.edu.cn 邮箱地址
-2. **接收验证码**：检查邮箱并输入6位验证码
-3. **完成登录**：验证成功后自动进入主界面
+### First Use
+1. **Login Verification**: Enter your @wku.edu.cn email address
+2. **Receive Verification Code**: Check your email and enter the 6-digit verification code
+3. **Complete Login**: Automatically enter the main interface after successful verification
 
-### 房间配置
-1. 点击设置按钮进入配置页面
-2. 选择您的楼栋、楼层和房间
-3. 如需自定义API参数，进入"开发者模式"
-4. 保存设置并返回主界面
+### Room Configuration
+1. Click the settings button to enter the configuration page
+2. Select your building, floor, and room
+3. If you need to customize API parameters, enter "Developer Mode"
+4. Save settings and return to the main interface
 
-### 查询操作
-1. 确保房间信息已正确配置
-2. 点击"查询"按钮获取实时数据
-3. 查看历史记录了解用费趋势
+### Query Operations
+1. Ensure room information is correctly configured
+2. Click the "Query" button to get real-time data
+3. View history records to understand usage trends
 
-### 配置管理
-- **登录认证**：必须使用 @wku.edu.cn 邮箱完成验证
-- **房间配置**：必须完成才能查询水电费
-- **卡用户ID**：可选配置，未设置时跳过卡余额查询
-- **开发者参数**：高级用户可自定义API接口参数
-- **退出登录**：在设置页面可安全退出登录
+### Configuration Management
+- **Login Authentication**: Must use @wku.edu.cn email for verification
+- **Room Configuration**: Must be completed before querying water and electricity fees
+- **Card User ID**: Optional configuration, card balance query is skipped when not set
+- **Developer Parameters**: Advanced users can customize API interface parameters
+- **Logout**: Safe logout available in the settings page
 
-## 🔒 隐私与安全
+## 🔒 Privacy & Security
 
-- 所有数据本地存储，不上传至第三方服务器
-- 敏感配置信息仅在设备本地保存
-- 网络请求仅访问官方查询接口
+- All data is stored locally and not uploaded to third-party servers
+- Sensitive configuration information is only saved locally on the device
+- Network requests only access official query interfaces
 
-## 🛠 开发者说明
+## 🛠 Developer Instructions
 
-### API接口
-- **卡余额**：`https://webapp.xiaofubao.com/card/getCardMoney`
-- **水电费**：`https://application.xiaofubao.com/app/electric/queryRoomSurplus`
+### API Interfaces
+- **Card Balance**: `https://webapp.xiaofubao.com/card/getCardMoney`
+- **Water & Electricity Fees**: `https://application.xiaofubao.com/app/electric/queryRoomSurplus`
 
-### 配置参数
-- `cardUserId`：饭卡查询用户ID
-- `roomUserId`：水电费查询用户ID  
-- `deviceId`：设备标识符
-- `areaId_elec`：电费查询区域ID
-- `areaId_water`：水费查询区域ID
+### Configuration Parameters
+- `cardUserId`: Card query user ID
+- `roomUserId`: Water and electricity fee query user ID
+- `deviceId`: Device identifier
+- `areaId_elec`: Electricity fee query area ID
+- `areaId_water`: Water fee query area ID
 
-### 抓包获取参数
-1. 使用浏览器开发者工具或代理工具
-2. 在官方查询页面进行一次查询
-3. 从请求头的Cookie中获取`shiroJID`值
-4. 从请求参数中获取相应的ID值
+### Packet Capture for Parameters
+1. Use browser developer tools or proxy tools
+2. Perform a query on the official query page
+3. Get the `shiroJID` value from the Cookie in the request header
+4. Get the corresponding ID values from the request parameters
 
-## 📝 更新日志
 
-### v1.0.0
-- ✨ 首次发布
-- 🔍 支持饭卡、水费、电费查询
-- 🏠 房间信息级联选择
-- 📊 历史记录功能
-- ⚙️ 个性化配置管理
-- 🎨 现代化UI设计
+## 📄 License
 
-## 📄 许可证
-
-本项目仅供学习和个人使用，请遵守相关法律法规和学校规定。
-
----
-
-**注意**：本应用需要有效的用户凭证才能正常工作，请确保您有权限访问相关查询服务。
+This project is for learning and personal use only. Please comply with relevant laws, regulations, and school policies.
