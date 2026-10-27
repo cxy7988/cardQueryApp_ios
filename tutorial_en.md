@@ -1,3 +1,5 @@
+> Legacy guide: water/electricity queries now use authenticated server tasks. See [README](README.md) for the current login, room binding and query flow.
+
 iPhone Packet Capture Tutorial
 ---
 

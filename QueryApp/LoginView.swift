@@ -180,148 +180,9 @@ class RoomDataManager: ObservableObject {
     }
 }
 
-// MARK: - 登录API服务
-class LoginService: ObservableObject {
-    let baseURL = "https://wkuquery.asia:5000"  // 使用域名
-    
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    
-    func sendVerificationCode(email: String, completion: @escaping (Bool, String?) -> Void) {
-        guard let url = URL(string: "\(baseURL)/api/send_code") else {
-            completion(false, "无效的服务器地址")
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body = ["email": email]
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        } catch {
-            completion(false, "数据格式错误")
-            return
-        }
-        
-        isLoading = true
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                if let error = error {
-                    completion(false, "网络错误：\(error.localizedDescription)")
-                    return
-                }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    completion(false, "服务器响应错误")
-                    return
-                }
-                
-                if httpResponse.statusCode == 202 {
-                    completion(true, "验证码已发送")
-                } else {
-                    // 解析错误信息
-                    if let data = data,
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let errorMsg = json["error"] as? String {
-                        completion(false, errorMsg)
-                    } else {
-                        completion(false, "发送失败，请稍后重试")
-                    }
-                }
-            }
-        }.resume()
-    }
-    
-    func verifyCode(email: String, code: String, completion: @escaping (Bool, String?) -> Void) {
-        guard let url = URL(string: "\(baseURL)/api/verify_code") else {
-            completion(false, "无效的服务器地址")
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body = ["email": email, "code": code]
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        } catch {
-            completion(false, "数据格式错误")
-            return
-        }
-        
-        isLoading = true
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                if let error = error {
-                    completion(false, "网络错误：\(error.localizedDescription)")
-                    return
-                }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    completion(false, "服务器响应错误")
-                    return
-                }
-                
-                if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if httpResponse.statusCode == 200,
-                       let valid = json["valid"] as? Bool,
-                       valid {
-                        completion(true, "登录成功")
-                    } else {
-                        let errorMsg = json["error"] as? String ?? "验证失败"
-                        completion(false, errorMsg)
-                    }
-                } else {
-                    completion(false, "验证失败，请稍后重试")
-                }
-            }
-        }.resume()
-    }
-}
-
-// MARK: - 登录管理器
-class LoginManager: ObservableObject {
-    @Published var isLoggedIn: Bool = false
-    @Published var userEmail: String = ""
-    
-    private let userDefaultsKey = "isLoggedIn"
-    private let emailKey = "userEmail"
-    
-    init() {
-        loadLoginState()
-    }
-    
-    private func loadLoginState() {
-        isLoggedIn = UserDefaults.standard.bool(forKey: userDefaultsKey)
-        userEmail = UserDefaults.standard.string(forKey: emailKey) ?? ""
-    }
-    
-    func login(email: String) {
-        isLoggedIn = true
-        userEmail = email
-        UserDefaults.standard.set(true, forKey: userDefaultsKey)
-        UserDefaults.standard.set(email, forKey: emailKey)
-    }
-    
-    func logout() {
-        isLoggedIn = false
-        userEmail = ""
-        UserDefaults.standard.set(false, forKey: userDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: emailKey)
-    }
-}
-
 // MARK: - 登录界面
 struct LoginView: View {
-    @StateObject private var loginService = LoginService()
+    @State private var isLoading = false
     @StateObject private var roomDataManager = RoomDataManager()
     @EnvironmentObject var loginManager: LoginManager
     
@@ -381,8 +242,8 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .autocorrectionDisabled()
-                                .disabled(currentStep == .enterCode)
-                                .opacity(currentStep == .enterCode ? 0.6 : 1.0)
+                                .disabled(currentStep != .enterEmail || isLoading)
+                                .opacity(currentStep != .enterEmail ? 0.6 : 1.0)
                         }
                         
                         // 验证码输入（仅在第二步显示）
@@ -393,6 +254,7 @@ struct LoginView: View {
                                     .fontWeight(.medium)
                                 
                                 TextField("请输入6位验证码", text: $verificationCode)
+                                    .textContentType(.oneTimeCode)
                                     .textFieldStyle(.roundedBorder)
                                     .keyboardType(.numberPad)
                                     .autocorrectionDisabled()
@@ -491,13 +353,13 @@ struct LoginView: View {
                                 // 发送验证码按钮
                                 Button(action: sendVerificationCode) {
                                     HStack {
-                                        if loginService.isLoading {
+                                        if isLoading {
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                                 .scaleEffect(0.8)
                                         }
                                         
-                                        Text(loginService.isLoading ? "发送中..." : "发送验证码")
+                                        Text(isLoading ? "发送中..." : (countdown > 0 ? "请在 \(countdown) 秒后重试" : "发送验证码"))
                                             .fontWeight(.medium)
                                     }
                                     .foregroundColor(.white)
@@ -512,18 +374,18 @@ struct LoginView: View {
                                     )
                                     .cornerRadius(12)
                                 }
-                                .disabled(email.isEmpty || loginService.isLoading || !isValidEmail(email))
+                                .disabled(email.isEmpty || isLoading || countdown > 0 || !isValidEmail(email))
                             } else if currentStep == .enterCode {
                                 // 验证码确认按钮
                                 Button(action: verifyCodeAndProceed) {
                                     HStack {
-                                        if loginService.isLoading {
+                                        if isLoading {
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                                 .scaleEffect(0.8)
                                         }
                                         
-                                        Text(loginService.isLoading ? "验证中..." : "验证并继续")
+                                        Text(isLoading ? "验证中..." : "验证并继续")
                                             .fontWeight(.medium)
                                     }
                                     .foregroundColor(.white)
@@ -538,7 +400,7 @@ struct LoginView: View {
                                     )
                                     .cornerRadius(12)
                                 }
-                                .disabled(verificationCode.isEmpty || loginService.isLoading)
+                                .disabled(verificationCode.count != 6 || isLoading)
                                 
                                 // 重新发送验证码按钮
                                 Button(action: sendVerificationCode) {
@@ -549,7 +411,7 @@ struct LoginView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.accentColor)
                                 }
-                                .disabled(countdown > 0 || loginService.isLoading)
+                                .disabled(countdown > 0 || isLoading)
                                 
                                 // 返回修改邮箱按钮
                                 Button(action: backToEmailStep) {
@@ -560,6 +422,7 @@ struct LoginView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 }
+                                .disabled(isLoading)
                             } else {
                                 // 房间选择步骤的按钮
                                 Button(action: completeLoginWithRoom) {
@@ -580,17 +443,18 @@ struct LoginView: View {
                                     )
                                     .cornerRadius(12)
                                 }
-                                .disabled(selectedRoom == nil)
+                                .disabled(selectedRoom == nil || isLoading)
                                 
                                 // 返回验证码步骤按钮
-                                Button(action: backToCodeStep) {
+                                Button(action: restartLogin) {
                                     HStack {
                                         Image(systemName: "chevron.left")
-                                        Text("返回上一步")
+                                        Text("重新验证邮箱")
                                     }
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 }
+                                .disabled(isLoading)
                             }
                         }
                     }
@@ -647,147 +511,110 @@ struct LoginView: View {
             Text(alertMessage)
         }
         .animation(.easeInOut(duration: 0.3), value: currentStep)
+        .onAppear {
+            if let session = loginManager.session, session.room == nil {
+                email = session.email
+                currentStep = .selectRoom
+            }
+            if let message = loginManager.sessionMessage {
+                showAlert(title: "登录提示", message: message)
+                loginManager.sessionMessage = nil
+            }
+        }
         .onDisappear {
             timer?.invalidate()
+        }
+        .onChange(of: loginManager.session) { _, session in
+            if session == nil && currentStep == .selectRoom { backToEmailStep() }
         }
     }
     
     private func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = #"^[a-zA-Z0-9._%+-]+@wku\.edu\.cn$"#
-        return email.range(of: emailRegex, options: .regularExpression) != nil
+        let normalized = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.range(of: #"^[a-z0-9._%+-]+@wku\.edu\.cn$"#, options: .regularExpression) != nil
     }
-    
+
     private func sendVerificationCode() {
-        guard !email.isEmpty && isValidEmail(email) else {
-            showAlert(title: "输入错误", message: "请输入有效的 @wku.edu.cn 邮箱地址")
-            return
-        }
-        
-        loginService.sendVerificationCode(email: email.lowercased()) { success, message in
-            if success {
+        guard !isLoading, isValidEmail(email) else { return }
+        email = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        isLoading = true
+        Task {
+            defer { isLoading = false }
+            do {
+                try await loginManager.api.sendCode(email: email)
                 currentStep = .enterCode
                 startCountdown()
-                showAlert(title: "发送成功", message: message ?? "验证码已发送，请检查您的邮箱")
-            } else {
-                showAlert(title: "发送失败", message: message ?? "未知错误")
+                showAlert(title: "发送成功", message: "验证码发送任务已提交，请检查您的邮箱")
+            } catch {
+                if case APIError.http(429, _, let seconds, _) = error, let seconds {
+                    startCountdown(seconds: seconds)
+                }
+                showAlert(title: "发送失败", message: error.localizedDescription)
             }
         }
     }
-    
+
     private func verifyCodeAndProceed() {
-        guard !verificationCode.isEmpty else {
-            showAlert(title: "输入错误", message: "请输入验证码")
+        guard !isLoading, verificationCode.range(of: #"^[0-9]{6}$"#, options: .regularExpression) != nil else {
+            showAlert(title: "输入错误", message: "请输入六位数字验证码")
             return
         }
-        
-        loginService.verifyCode(email: email.lowercased(), code: verificationCode) { success, message in
-            if success {
-                currentStep = .selectRoom
-            } else {
-                showAlert(title: "验证失败", message: message ?? "未知错误")
+        isLoading = true
+        Task {
+            defer { isLoading = false }
+            do {
+                try await loginManager.verify(email: email, code: verificationCode)
+                verificationCode = ""
+                if !loginManager.isLoggedIn { currentStep = .selectRoom }
+            } catch {
+                showAlert(title: "验证失败", message: error.localizedDescription)
             }
         }
     }
-    
+
     private func completeLoginWithRoom() {
-        guard let building = selectedBuilding,
-              let floor = selectedFloor,
-              let room = selectedRoom else {
-            showAlert(title: "选择错误", message: "请完整选择楼栋、楼层和房间")
-            return
-        }
-        
-        guard !verificationCode.isEmpty else {
-            showAlert(title: "验证错误", message: "验证码丢失，请重新获取验证码")
-            backToCodeStep()
-            return
-        }
-        
-        // 向服务器发送验证码和宿舍信息
-        loginService.isLoading = true
-        
-        guard let url = URL(string: "\(loginService.baseURL)/api/verify_code_with_room") else {
-            loginService.isLoading = false
-            showAlert(title: "错误", message: "无效的服务器地址")
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body: [String: Any] = [
-            "email": email.lowercased(),
-            "code": verificationCode,
-            "room_info": [
-                "building_code": building.code,
-                "building_name": building.name,
-                "floor_code": floor.code,
-                "floor_name": floor.name,
-                "room_code": room.code,
-                "room_name": room.name
-            ]
-        ]
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        } catch {
-            loginService.isLoading = false
-            showAlert(title: "错误", message: "数据格式错误")
-            return
-        }
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                self.loginService.isLoading = false
-                
-                if let error = error {
-                    self.showAlert(title: "网络错误", message: "网络错误：\(error.localizedDescription)")
-                    return
-                }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    self.showAlert(title: "服务器错误", message: "服务器响应错误")
-                    return
-                }
-                
-                if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if httpResponse.statusCode == 200,
-                       let valid = json["valid"] as? Bool,
-                       valid {
-                        // 保存房间信息到本地
-                        UserDefaults.standard.set(building.code, forKey: "buildingCode")
-                        UserDefaults.standard.set(floor.code, forKey: "floorCode")
-                        UserDefaults.standard.set(room.code, forKey: "roomCode")
-                        
-                        // 完成登录
-                        self.loginManager.login(email: self.email.lowercased())
-                        self.showAlert(title: "注册成功", message: "欢迎使用费用查询系统！您的宿舍信息已绑定：\(building.name) \(floor.name) \(room.name)")
-                    } else {
-                        let errorMsg = json["error"] as? String ?? "验证失败"
-                        self.showAlert(title: "验证失败", message: errorMsg)
-                    }
-                } else {
-                    self.showAlert(title: "验证失败", message: "验证失败，请稍后重试")
-                }
+        guard !isLoading, let building = selectedBuilding,
+              let floor = selectedFloor, let room = selectedRoom else { return }
+        let boundRoom = BoundRoom(buildingCode: building.code, buildingName: building.name,
+                                  floorCode: floor.code, floorName: floor.name,
+                                  roomCode: room.code, roomName: room.name)
+        isLoading = true
+        Task {
+            defer { isLoading = false }
+            do {
+                // 验证码已在第二步消费；绑定宿舍只使用服务器颁发的 Bearer 会话。
+                try await loginManager.bindRoom(boundRoom)
+            } catch {
+                if loginManager.session == nil { backToEmailStep() }
+                showAlert(title: "绑定失败", message: error.localizedDescription)
             }
-        }.resume()
+        }
     }
-    
-    private func backToCodeStep() {
-        currentStep = .enterCode
+
+    private func restartLogin() {
+        guard !isLoading else { return }
+        isLoading = true
+        Task {
+            defer { isLoading = false }
+            do {
+                try await loginManager.logout()
+                backToEmailStep()
+            } catch {
+                showAlert(title: "操作失败", message: error.localizedDescription)
+            }
+        }
     }
-    
+
     private func backToEmailStep() {
         currentStep = .enterEmail
         verificationCode = ""
         timer?.invalidate()
         countdown = 0
     }
-    
-    private func startCountdown() {
-        countdown = 60
+
+    private func startCountdown(seconds: Int = 60) {
+        timer?.invalidate()
+        countdown = seconds
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if countdown > 0 {
                 countdown -= 1
@@ -796,7 +623,7 @@ struct LoginView: View {
             }
         }
     }
-    
+
     private func showAlert(title: String, message: String) {
         alertTitle = title
         alertMessage = message
@@ -810,4 +637,4 @@ struct LoginView_Previews: PreviewProvider {
         LoginView()
             .environmentObject(LoginManager())
     }
-} 
+}

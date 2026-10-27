@@ -1,1 +1,6 @@
-﻿.VSCodeCounter/
+.VSCodeCounter/
+.build/
+.swiftpm/
+DerivedData/
+*.xcresult
+.DS_Store

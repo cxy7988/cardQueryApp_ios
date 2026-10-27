@@ -1,284 +1,199 @@
 import SwiftUI
 import Foundation
 
-// MARK: - 水费查询响应数据结构
-struct WaterResponse: Codable {
-    let data: WaterData?
-}
-
-struct WaterData: Codable {
-    let amount: Double  // 水费返回的是amount字段
-    let displayRoomName: String
-}
-
-// MARK: - 电费查询响应数据结构
-struct ElectricityResponse: Codable {
-    let data: ElectricityData?
-}
-
-struct ElectricityData: Codable {
-    let surplus: Double  // 电费返回的是surplus字段
-    let displayRoomName: String
-}
-
-
 struct ContentView: View {
-    @State private var balanceText: String = "未获取余额"
-    @State private var waterText: String = "未获取水费"
-    @State private var electricityText: String = "未获取电费"
-    @State private var roomNameText: String = "未获取房间信息"  // 新增房间名称状态
+    let session: UserSession
+    @State private var balanceText = "未获取余额"
+    @State private var cardBalance: String? = "未查询"
+    @State private var isCardQuerying = false
+    @State private var isFinalizing = false
+    @State private var completedRecord: ServerHistoryRecord?
+    @State private var snapshotReady = false
     @State private var showingSettings = false
     @State private var showingHistory = false
-    @State private var isQuerying = false
-    @StateObject private var historyManager = HistoryManager()
+    @StateObject private var query = QueryTaskModel()
+    @StateObject private var historyManager: HistoryManager
     @EnvironmentObject var loginManager: LoginManager
-    
-    // 使用@AppStorage来监听UserDefaults的变化
-    @AppStorage("buildingCode") private var buildingCode: String?
-    @AppStorage("floorCode") private var floorCode: String?
-    @AppStorage("roomCode") private var roomCode: String?
-    
-    // 计算属性来判断房间是否配置完整
-    private var isRoomConfigured: Bool {
-        return buildingCode != nil && floorCode != nil && roomCode != nil
+    @Environment(\.scenePhase) private var scenePhase
+
+    init(session: UserSession) {
+        self.session = session
+        _historyManager = StateObject(wrappedValue: HistoryManager(scope: session.storageScope, legacyEmail: session.email))
     }
-    
+
+    private var latest: ServerHistoryRecord? { historyManager.serverHistories.first }
+
+    private var waterText: String {
+        guard let latest else { return "未获取水费" }
+        guard latest.waterSuccess, let balance = latest.waterBalance else { return "最近一次水费查询未成功" }
+        return "水费余额：\(balance.formatted()) \(latest.waterUnit)"
+    }
+
+    private var electricityText: String {
+        guard let latest else { return "未获取电费" }
+        guard latest.electricitySuccess, let balance = latest.electricityBalance else { return "最近一次电费查询未成功" }
+        return "剩余电量：\(balance.formatted()) \(latest.electricityUnit)"
+    }
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // 信息卡片区域
                     VStack(spacing: 16) {
-                        // 房间名称显示
-                        InfoCard(
-                            icon: "house.fill",
-                            iconColor: .green,
-                            text: roomNameText
-                        )
-                        
-                        // 卡余额显示
-                        InfoCard(
-                            icon: "creditcard.fill",
-                            iconColor: .blue,
-                            text: balanceText
-                        )
-                        
-                        // 水费显示
-                        InfoCard(
-                            icon: "drop.fill",
-                            iconColor: .cyan,
-                            text: waterText
-                        )
-                        
-                        // 电费显示
-                        InfoCard(
-                            icon: "bolt.circle.fill",
-                            iconColor: .orange,
-                            text: electricityText
-                        )
+                        InfoCard(icon: "house.fill", iconColor: .green,
+                                 text: session.room?.displayName ?? "未绑定宿舍")
+                        InfoCard(icon: "creditcard.fill", iconColor: .blue, text: balanceText)
+                        InfoCard(icon: "drop.fill", iconColor: .cyan, text: waterText)
+                        InfoCard(icon: "bolt.circle.fill", iconColor: .orange, text: electricityText)
                     }
                     .padding(.top, 8)
-                    
-                    // 房间配置检查和查询按钮
-                    if !isRoomConfigured {
-                        // 房间未配置时的提示
-                        VStack(spacing: 12) {
-                            Image(systemName: "house.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.orange)
-                            
-                            Text("请先配置房间信息")
-                                .font(.headline)
-                                .fontWeight(.medium)
-                            
-                            Text("需要在设置中选择您的楼栋、楼层和房间")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                            
-                            Button("前往设置") {
-                                showingSettings = true
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .padding(.top, 8)
-                        }
-                        .padding(.horizontal, 20)
-                    } else {
-                        // 查询按钮
-                        Button(action: {
-                            if !isQuerying {
-                                queryAllData()
-                            }
-                        }) {
-                            HStack(spacing: 8) {
-                                if isQuerying {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "magnifyingglass")
-                                        .font(.system(size: 16, weight: .medium))
-                                }
-                                
-                                Text(isQuerying ? "查询中..." : "查询")
-                                    .font(.system(size: 16, weight: .medium))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 12)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        isQuerying ? Color.gray : Color.accentColor,
-                                        isQuerying ? Color.gray.opacity(0.8) : Color.accentColor.opacity(0.8)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(25)
-                            .shadow(color: (isQuerying ? Color.gray : Color.accentColor).opacity(0.3), radius: 8, x: 0, y: 4)
-                        }
-                        .disabled(isQuerying)
-                        .scaleEffect(isQuerying ? 0.95 : 1.0)
-                        .animation(.easeInOut(duration: 0.2), value: isQuerying)
+
+                    if let latest {
+                        Text("最近的水电记录：\(latest.displayTime)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    
-                    // 应用说明区域
-                    AppGuideView()
-                        .padding(.top, 20)
+
+                    Button(action: startQuery) {
+                        HStack(spacing: 8) {
+                            if query.isMonitoring {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            Text(query.isMonitoring || isCardQuerying || isFinalizing ? "查询中…" : (query.hasPendingQuery ? "继续连接查询" : "查询"))
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(query.isMonitoring || isCardQuerying || isFinalizing)
+
+                    if !query.progressMessage.isEmpty {
+                        VStack(spacing: 8) {
+                            Text(query.progressMessage)
+                                .font(.subheadline)
+                            if let task = query.task, task.total > 0 {
+                                ProgressView(value: Double(task.completed), total: Double(task.total))
+                                Text("已完成 \(task.completed)/\(task.total)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                    }
+                    if let error = query.errorMessage {
+                        Text(error).font(.footnote).foregroundColor(.red)
+                    }
+                    if let error = historyManager.syncError {
+                        VStack(spacing: 8) {
+                            Text("历史记录更新失败：\(error)")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                            Button("重新读取记录") { Task { await refreshHistory() } }
+                                .font(.footnote)
+                        }
+                    }
+
+                    AppGuideView().padding(.top, 12)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(20)
             }
+            .refreshable { await refreshHistory() }
             .navigationTitle("费用查询")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        showingHistory = true
-                    }) {
+                    Button { showingHistory = true } label: {
                         Image(systemName: "clock.arrow.circlepath")
-                            .foregroundColor(.accentColor)
                     }
+                    .accessibilityLabel("查询历史")
                 }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingSettings = true
-                    }) {
+                    Button { showingSettings = true } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(.accentColor)
                     }
+                    .accessibilityLabel("应用设置")
                 }
             }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-            }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingHistory) {
-                HistoryView()
-                    .environmentObject(historyManager)
+                HistoryView().environmentObject(historyManager)
             }
         }
-    }
-    
-    private func queryAllData() {
-        isQuerying = true
-        var currentRoomName: String?
-        var currentCardBalance: String?
-        var currentWaterBalance: Double?
-        var currentElectricityBalance: Double?
-        var completedQueries = 0
-        let totalQueries = 3
-        
-        // 查询卡余额
-        if Config.cardUserId != nil {
-            getCardMoney { balance in
-                DispatchQueue.main.async {
-                    if let balance = balance {
-                        balanceText = "卡余额：\(balance) 元"
-                        currentCardBalance = balance
-                    } else {
-                        balanceText = "获取失败"
-                        currentCardBalance = nil
-                    }
-                    
-                    completedQueries += 1
-                    if completedQueries == totalQueries {
-                        saveToHistory(roomName: currentRoomName, cardBalance: currentCardBalance, waterBalance: currentWaterBalance, electricityBalance: currentElectricityBalance)
-                        isQuerying = false
-                    }
-                }
-            }
-        } else {
-            // 卡用户ID未配置，跳过查询
-            DispatchQueue.main.async {
-                balanceText = "未配置卡用户ID"
-                currentCardBalance = "未配置"
-                
-                completedQueries += 1
-                if completedQueries == totalQueries {
-                    saveToHistory(roomName: currentRoomName, cardBalance: currentCardBalance, waterBalance: currentWaterBalance, electricityBalance: currentElectricityBalance)
-                    isQuerying = false
-                }
+        .task {
+            query.restore(api: loginManager.api, session: session)
+            await refreshHistory()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                query.restore(api: loginManager.api, session: session)
+            } else {
+                query.suspend()
             }
         }
-
-        // 查询水费
-        getWaterBalance { roomName, surplus in
-            DispatchQueue.main.async {
-                if let roomName = roomName, let surplus = surplus {
-                    roomNameText = "\(roomName)"
-                    waterText = "水费余额：\(surplus) 元"
-                    currentRoomName = roomName
-                    currentWaterBalance = surplus
-                } else {
-                    roomNameText = "获取房间信息失败"
-                    waterText = "获取水费失败"
-                }
-                
-                completedQueries += 1
-                if completedQueries == totalQueries {
-                    saveToHistory(roomName: currentRoomName, cardBalance: currentCardBalance, waterBalance: currentWaterBalance, electricityBalance: currentElectricityBalance)
-                    isQuerying = false
-                }
-            }
+        .onDisappear { query.suspend() }
+        .onChange(of: query.expiredToken) { _, token in
+            if let token { loginManager.handle(APIError.unauthorized, token: token) }
         }
-        
-        // 查询电费
-        getElectricityBalance { roomName, amount in
-            DispatchQueue.main.async {
-                if let amount = amount {
-                    electricityText = "剩余电量：\(amount) 度"
-                    currentElectricityBalance = amount
-                    // 如果水费查询失败但电费成功，也更新房间名称
-                    if currentRoomName == nil, let roomName = roomName {
-                        roomNameText = "\(roomName)"
-                        currentRoomName = roomName
-                    }
-                } else {
-                    electricityText = "获取电量失败"
-                }
-                
-                completedQueries += 1
-                if completedQueries == totalQueries {
-                    saveToHistory(roomName: currentRoomName, cardBalance: currentCardBalance, waterBalance: currentWaterBalance, electricityBalance: currentElectricityBalance)
-                    isQuerying = false
-                }
+        .onChange(of: query.finishedTaskId) { _, id in
+            guard id != nil else { return }
+            isFinalizing = true
+            Task {
+                let refreshed = await refreshHistory()
+                completedRecord = refreshed && query.task?.status == .succeeded ? latest : nil
+                snapshotReady = true
+                saveSnapshotIfReady()
             }
         }
     }
 
-    private func saveToHistory(roomName: String?, cardBalance: String?, waterBalance: Double?, electricityBalance: Double?) {
-        historyManager.addHistory(
-            roomName: roomName,
-            cardBalance: cardBalance,
-            waterBalance: waterBalance,
-            electricityBalance: electricityBalance
-        )
+    private func startQuery() {
+        do {
+            let current = try loginManager.requireSession()
+            if !query.hasPendingQuery {
+                let hasCard = Config.cardUserId(for: current.email) != nil
+                cardBalance = hasCard ? nil : "未配置"
+                isCardQuerying = hasCard
+                balanceText = hasCard ? "正在查询饭卡余额…" : "未配置卡用户ID"
+                getCardMoney(email: current.email) { balance in
+                    DispatchQueue.main.async {
+                        cardBalance = hasCard ? balance : "未配置"
+                        isCardQuerying = false
+                        if let balance { balanceText = "卡余额：\(balance) 元" }
+                        else { balanceText = hasCard ? "饭卡余额查询失败" : "未配置卡用户ID" }
+                        saveSnapshotIfReady()
+                    }
+                }
+            }
+            query.start(api: loginManager.api, session: current)
+        } catch {
+            loginManager.handle(error, token: session.accessToken)
+        }
+    }
+
+    private func saveSnapshotIfReady() {
+        guard snapshotReady, !isCardQuerying else { return }
+        historyManager.addHistory(roomName: session.room?.displayName, cardBalance: cardBalance,
+                                  waterBalance: completedRecord?.waterSuccess == true ? completedRecord?.waterBalance : nil,
+                                  electricityBalance: completedRecord?.electricitySuccess == true ? completedRecord?.electricityBalance : nil)
+        snapshotReady = false
+        completedRecord = nil
+        isFinalizing = false
+    }
+
+    @discardableResult
+    private func refreshHistory() async -> Bool {
+        do {
+            let current = try loginManager.requireSession()
+            try await historyManager.refresh(api: loginManager.api, session: current)
+            return true
+        } catch {
+            if !Task.isCancelled { loginManager.handle(error, token: session.accessToken) }
+            return false
+        }
     }
 }
-    
 
 // MARK: - InfoCard 组件
 struct InfoCard: View {
@@ -335,16 +250,16 @@ struct AppGuideView: View {
             VStack(alignment: .leading, spacing: 16) {
                 GuideStep(
                     number: "1",
-                    title: "配置房间信息",
-                    description: "点击设置按钮，选择您的楼栋、楼层和房间号",
+                    title: "绑定宿舍",
+                    description: "首次验证邮箱后选择宿舍，之后登录会自动读取已绑定的宿舍",
                     icon: "house.fill",
                     color: .orange
                 )
                 
                 GuideStep(
                     number: "2",
-                    title: "开发者模式（可选）",
-                    description: "如需自定义API参数，进入设置中的开发者模式",
+                    title: "饭卡配置（可选）",
+                    description: "在设置中填写饭卡用户ID，未填写时仅查询水电余额",
                     icon: "wrench.fill",
                     color: .purple
                 )
@@ -352,7 +267,7 @@ struct AppGuideView: View {
                 GuideStep(
                     number: "3",
                     title: "开始查询",
-                    description: "配置完成后点击查询按钮获取实时数据",
+                    description: "提交后可查看查询进度，暂时离开应用后可继续查看结果",
                     icon: "magnifyingglass",
                     color: .blue
                 )
@@ -379,7 +294,7 @@ struct AppGuideView: View {
                     
                     ConfigInfo(
                         title: "开发者参数",
-                        description: "高级用户可自定义API接口参数",
+                        description: "本机可设置饭卡参数，水电查询配置由服务器管理",
                         status: .advanced
                     )
                 }
@@ -439,7 +354,7 @@ struct AppGuideView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.caption)
-                        Text("所有数据本地存储，不上传至第三方服务器")
+                        Text("邮箱、宿舍和水电记录保存在查询服务器，用于身份验证和历史查询")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -448,7 +363,7 @@ struct AppGuideView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.caption)
-                        Text("敏感配置信息仅在设备本地保存")
+                        Text("登录凭据保存在设备钥匙串，本机记录按账号分别保存")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -457,7 +372,7 @@ struct AppGuideView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.caption)
-                        Text("网络请求仅访问官方查询接口")
+                        Text("水电查询通过查询服务器执行，饭卡查询访问校园官方接口")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -580,7 +495,8 @@ struct ConfigInfo: View {
 // 预览
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        ContentView(session: UserSession(email: "preview@wku.edu.cn", accessToken: "preview",
+                                        expiresAt: .distantFuture, serverURL: ServerAPI.live.baseURL, room: nil))
             .environmentObject(LoginManager())
     }
 }
